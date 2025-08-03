@@ -32,6 +32,13 @@ export default {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
 				},
+				fitness: {
+					blue: 'hsl(var(--fitness-blue))',
+					'blue-light': 'hsl(var(--fitness-blue-light))',
+					'blue-dark': 'hsl(var(--fitness-blue-dark))',
+					gray: 'hsl(var(--fitness-gray))',
+					'gray-dark': 'hsl(var(--fitness-gray-dark))'
+				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
