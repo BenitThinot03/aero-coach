@@ -8,6 +8,7 @@ import { Settings, LogOut, Trash2, Edit } from "lucide-react";
 import { useState } from "react";
 
 export const ProfilePage = () => {
+  const { signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
     name: "John Doe",

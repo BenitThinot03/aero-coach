@@ -1,49 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Timer, Flame } from "lucide-react";
+import { CreateWorkoutDialog } from "@/components/CreateWorkoutDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export const WorkoutPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [workoutSessions, setWorkoutSessions] = useState<any[]>([]);
+  const { user } = useAuth();
 
-  const workoutSessions = [
-    {
-      id: 1,
-      name: "Upper Body Strength",
-      date: "Today",
-      duration: 45,
-      calories: 320,
-      exercises: ["Push-ups", "Pull-ups", "Bench Press"]
-    },
-    {
-      id: 2,
-      name: "Cardio Session",
-      date: "Yesterday",
-      duration: 30,
-      calories: 280,
-      exercises: ["Running", "Burpees", "Jump Rope"]
-    },
-    {
-      id: 3,
-      name: "Leg Day",
-      date: "2 days ago",
-      duration: 50,
-      calories: 350,
-      exercises: ["Squats", "Deadlifts", "Lunges"]
+  const fetchWorkouts = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("WorkoutSession")
+        .select("*")
+        .eq("userid", user.id)
+        .order("date", { ascending: false });
+
+      if (error) throw error;
+      setWorkoutSessions(data || []);
+    } catch (error) {
+      console.error("Error fetching workouts:", error);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchWorkouts();
+  }, [user]);
 
   return (
     <div className="p-4 pb-20 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Workouts</h1>
-        <Button className="bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-2" />
-          New Workout
-        </Button>
+        <CreateWorkoutDialog onWorkoutCreated={fetchWorkouts} />
       </div>
 
       {/* Search */}
@@ -83,35 +79,45 @@ export const WorkoutPage = () => {
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Recent Workouts</h2>
         
-        {workoutSessions.map((workout) => (
-          <Card key={workout.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">{workout.name}</h3>
-                <span className="text-sm text-muted-foreground">{workout.date}</span>
-              </div>
-              
-              <div className="flex items-center space-x-4 mb-3">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Timer className="w-4 h-4 mr-1" />
-                  {workout.duration} min
-                </div>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Flame className="w-4 h-4 mr-1" />
-                  {workout.calories} cal
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-1">
-                {workout.exercises.map((exercise, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {exercise}
-                  </Badge>
-                ))}
-              </div>
+        {workoutSessions.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              No workouts yet. Create your first workout to get started!
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          workoutSessions.map((workout) => (
+            <Card key={workout.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">Workout Session</h3>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(workout.date).toLocaleDateString()}
+                  </span>
+                </div>
+                
+                <div className="flex items-center space-x-4 mb-3">
+                  {workout.duration && (
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Timer className="w-4 h-4 mr-1" />
+                      {workout.duration} min
+                    </div>
+                  )}
+                  {workout.caloriesburned && (
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Flame className="w-4 h-4 mr-1" />
+                      {workout.caloriesburned} cal
+                    </div>
+                  )}
+                </div>
+                
+                {workout.notes && (
+                  <p className="text-sm text-muted-foreground">{workout.notes}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

@@ -1,49 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Camera, MessageCircle, Search } from "lucide-react";
+import { AddMealDialog } from "@/components/AddMealDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export const NutritionPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showChat, setShowChat] = useState(false);
-
-  const todayMeals = [
-    {
-      id: 1,
-      type: "Breakfast",
-      time: "8:30 AM",
-      foods: ["Oatmeal", "Banana", "Almonds"],
-      calories: 420,
-      protein: 15,
-      carbs: 65,
-      fats: 12
-    },
-    {
-      id: 2,
-      type: "Lunch",
-      time: "12:45 PM",
-      foods: ["Grilled Chicken", "Brown Rice", "Broccoli"],
-      calories: 580,
-      protein: 45,
-      carbs: 55,
-      fats: 8
-    }
-  ];
-
-  const totalNutrition = {
-    calories: 1000,
-    protein: 60,
-    carbs: 120,
-    fats: 20,
+  const [todayMeals, setTodayMeals] = useState<any[]>([]);
+  const [totalNutrition, setTotalNutrition] = useState({
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fats: 0,
     goal: {
       calories: 2200,
       protein: 150,
       carbs: 275,
       fats: 73
     }
+  });
+  const { user } = useAuth();
+
+  const fetchMeals = async () => {
+    if (!user) return;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from("NutritionEntry")
+        .select("*")
+        .eq("userid", user.id)
+        .gte("date", today)
+        .lt("date", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
+        .order("date", { ascending: false });
+
+      if (error) throw error;
+      
+      const meals = data || [];
+      setTodayMeals(meals);
+      
+      // Calculate totals
+      const totals = meals.reduce((acc, meal) => ({
+        calories: acc.calories + meal.calories,
+        protein: acc.protein + meal.protein,
+        carbs: acc.carbs + meal.carbs,
+        fats: acc.fats + meal.fats,
+      }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+      
+      setTotalNutrition(prev => ({ ...prev, ...totals }));
+    } catch (error) {
+      console.error("Error fetching meals:", error);
+    }
   };
+
+  useEffect(() => {
+    fetchMeals();
+  }, [user]);
 
   return (
     <div className="p-4 pb-20 space-y-6">
@@ -55,10 +72,7 @@ export const NutritionPage = () => {
             <Camera className="w-4 h-4 mr-2" />
             Photo
           </Button>
-          <Button size="sm">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Meal
-          </Button>
+          <AddMealDialog onMealAdded={fetchMeals} />
         </div>
       </div>
 
@@ -122,43 +136,56 @@ export const NutritionPage = () => {
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Today's Meals</h2>
         
-        {todayMeals.map((meal) => (
-          <Card key={meal.id}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold">{meal.type}</h3>
-                <span className="text-sm text-muted-foreground">{meal.time}</span>
-              </div>
-              
-              <div className="flex flex-wrap gap-1 mb-3">
-                {meal.foods.map((food, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {food}
-                  </Badge>
-                ))}
-              </div>
-              
-              <div className="grid grid-cols-4 gap-2 text-xs text-center">
-                <div>
-                  <p className="font-medium">{meal.calories}</p>
-                  <p className="text-muted-foreground">cal</p>
-                </div>
-                <div>
-                  <p className="font-medium">{meal.protein}g</p>
-                  <p className="text-muted-foreground">protein</p>
-                </div>
-                <div>
-                  <p className="font-medium">{meal.carbs}g</p>
-                  <p className="text-muted-foreground">carbs</p>
-                </div>
-                <div>
-                  <p className="font-medium">{meal.fats}g</p>
-                  <p className="text-muted-foreground">fats</p>
-                </div>
-              </div>
+        {todayMeals.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              No meals logged today. Add your first meal to start tracking!
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          todayMeals.map((meal) => {
+            const foodItems = JSON.parse(meal.fooditems || '[]');
+            return (
+              <Card key={meal.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold capitalize">{meal.mealtype}</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(meal.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {foodItems.map((food: string, index: number) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {food}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2 text-xs text-center">
+                    <div>
+                      <p className="font-medium">{Math.round(meal.calories)}</p>
+                      <p className="text-muted-foreground">cal</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">{Math.round(meal.protein)}g</p>
+                      <p className="text-muted-foreground">protein</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">{Math.round(meal.carbs)}g</p>
+                      <p className="text-muted-foreground">carbs</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">{Math.round(meal.fats)}g</p>
+                      <p className="text-muted-foreground">fats</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
 
       {/* AI Assistant Button */}
