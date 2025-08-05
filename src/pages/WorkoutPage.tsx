@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Timer, Flame } from "lucide-react";
 import { CreateWorkoutDialog } from "@/components/CreateWorkoutDialog";
+import { WorkoutSessionDetails } from "@/components/WorkoutSessionDetails";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export const WorkoutPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [workoutSessions, setWorkoutSessions] = useState<any[]>([]);
+  const [selectedSession, setSelectedSession] = useState<any>(null);
   const { user } = useAuth();
 
   const fetchWorkouts = async () => {
@@ -33,6 +35,22 @@ export const WorkoutPage = () => {
   useEffect(() => {
     fetchWorkouts();
   }, [user]);
+
+  const filteredSessions = workoutSessions.filter(session =>
+    searchTerm === "" || 
+    session.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    new Date(session.date).toLocaleDateString().includes(searchTerm)
+  );
+
+  if (selectedSession) {
+    return (
+      <WorkoutSessionDetails
+        session={selectedSession}
+        onBack={() => setSelectedSession(null)}
+        onUpdate={fetchWorkouts}
+      />
+    );
+  }
 
   return (
     <div className="p-4 pb-20 space-y-6">
@@ -86,8 +104,12 @@ export const WorkoutPage = () => {
             </CardContent>
           </Card>
         ) : (
-          workoutSessions.map((workout) => (
-            <Card key={workout.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+          filteredSessions.map((workout) => (
+            <Card 
+              key={workout.id} 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setSelectedSession(workout)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold">Workout Session</h3>
