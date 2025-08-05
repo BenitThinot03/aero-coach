@@ -36,15 +36,7 @@ export type Database = {
           timestamp?: string | null
           userid?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "AIMessageLog_userid_fkey"
-            columns: ["userid"]
-            isOneToOne: false
-            referencedRelation: "User"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       Exercise: {
         Row: {
@@ -101,15 +93,7 @@ export type Database = {
           waist?: number | null
           weight?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "Measurement_userid_fkey"
-            columns: ["userid"]
-            isOneToOne: false
-            referencedRelation: "User"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       NutritionEntry: {
         Row: {
@@ -151,15 +135,7 @@ export type Database = {
           userid?: string
           vitamins?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "NutritionEntry_userid_fkey"
-            columns: ["userid"]
-            isOneToOne: false
-            referencedRelation: "User"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -199,45 +175,6 @@ export type Database = {
           units_preference?: string | null
           updated_at?: string
           user_id?: string
-          weight?: number | null
-        }
-        Relationships: []
-      }
-      User: {
-        Row: {
-          age: number | null
-          createdat: string | null
-          email: string
-          fitnessgoal: string | null
-          height: number | null
-          id: string
-          name: string
-          passwordhash: string
-          unitspreference: string | null
-          weight: number | null
-        }
-        Insert: {
-          age?: number | null
-          createdat?: string | null
-          email: string
-          fitnessgoal?: string | null
-          height?: number | null
-          id: string
-          name: string
-          passwordhash: string
-          unitspreference?: string | null
-          weight?: number | null
-        }
-        Update: {
-          age?: number | null
-          createdat?: string | null
-          email?: string
-          fitnessgoal?: string | null
-          height?: number | null
-          id?: string
-          name?: string
-          passwordhash?: string
-          unitspreference?: string | null
           weight?: number | null
         }
         Relationships: []
@@ -312,15 +249,7 @@ export type Database = {
           notes?: string | null
           userid?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "WorkoutSession_userid_fkey"
-            columns: ["userid"]
-            isOneToOne: false
-            referencedRelation: "User"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
