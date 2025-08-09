@@ -112,7 +112,9 @@ export type Database = {
           fats: number
           fooditems: string
           id: string
+          is_favorite: boolean | null
           mealtype: string
+          notes: string | null
           protein: number
           sugar: number | null
           userid: string
@@ -125,7 +127,9 @@ export type Database = {
           fats: number
           fooditems: string
           id: string
+          is_favorite?: boolean | null
           mealtype: string
+          notes?: string | null
           protein: number
           sugar?: number | null
           userid: string
@@ -138,7 +142,9 @@ export type Database = {
           fats?: number
           fooditems?: string
           id?: string
+          is_favorite?: boolean | null
           mealtype?: string
+          notes?: string | null
           protein?: number
           sugar?: number | null
           userid?: string

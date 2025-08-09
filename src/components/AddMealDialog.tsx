@@ -1,16 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Star, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AddMealDialogProps {
   onMealAdded: () => void;
+}
+
+interface PreviousMeal {
+  id: string;
+  mealtype: string;
+  fooditems: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  sugar: number | null;
+  notes: string | null;
+  is_favorite: boolean;
 }
 
 export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
@@ -22,9 +37,56 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
   const [carbs, setCarbs] = useState("");
   const [fats, setFats] = useState("");
   const [sugar, setSugar] = useState("");
+  const [notes, setNotes] = useState("");
+  const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [previousMeals, setPreviousMeals] = useState<PreviousMeal[]>([]);
+  const [selectedMealId, setSelectedMealId] = useState("");
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const fetchPreviousMeals = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("NutritionEntry")
+        .select("*")
+        .eq("userid", user.id)
+        .order("date", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      // Remove duplicates based on fooditems
+      const uniqueMeals = data.reduce((acc: PreviousMeal[], meal) => {
+        const existing = acc.find(m => m.fooditems === meal.fooditems && m.mealtype === meal.mealtype);
+        if (!existing) {
+          acc.push(meal);
+        }
+        return acc;
+      }, []);
+
+      setPreviousMeals(uniqueMeals);
+    } catch (error) {
+      console.error("Error fetching previous meals:", error);
+    }
+  };
+
+  const handleSelectPreviousMeal = (mealId: string) => {
+    const meal = previousMeals.find(m => m.id === mealId);
+    if (meal) {
+      setMealType(meal.mealtype);
+      setFoodItems(JSON.parse(meal.fooditems).join(", "));
+      setCalories(meal.calories.toString());
+      setProtein(meal.protein.toString());
+      setCarbs(meal.carbs.toString());
+      setFats(meal.fats.toString());
+      setSugar(meal.sugar?.toString() || "");
+      setNotes(meal.notes || "");
+      setIsFavorite(meal.is_favorite);
+    }
+  };
 
   const handleAddMeal = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +107,8 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
           carbs: parseFloat(carbs),
           fats: parseFloat(fats),
           sugar: sugar ? parseFloat(sugar) : null,
+          notes: notes || null,
+          is_favorite: isFavorite,
         });
 
       if (error) throw error;
@@ -62,6 +126,9 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
       setCarbs("");
       setFats("");
       setSugar("");
+      setNotes("");
+      setIsFavorite(false);
+      setSelectedMealId("");
       onMealAdded();
     } catch (error: any) {
       toast({
@@ -73,6 +140,12 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      fetchPreviousMeals();
+    }
+  }, [open, user]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -87,6 +160,37 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
           <DialogTitle>Add New Meal</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleAddMeal} className="space-y-4">
+          {previousMeals.length > 0 && (
+            <div className="space-y-2">
+              <Label>Quick Add from Previous Meals</Label>
+              <Select value={selectedMealId} onValueChange={(value) => {
+                setSelectedMealId(value);
+                handleSelectPreviousMeal(value);
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a previous meal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {previousMeals.filter(meal => meal.is_favorite).map((meal) => (
+                    <SelectItem key={`fav-${meal.id}`} value={meal.id}>
+                      <div className="flex items-center space-x-2">
+                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                        <span>{JSON.parse(meal.fooditems).join(", ")} ({meal.mealtype})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                  {previousMeals.filter(meal => !meal.is_favorite).map((meal) => (
+                    <SelectItem key={meal.id} value={meal.id}>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4" />
+                        <span>{JSON.parse(meal.fooditems).join(", ")} ({meal.mealtype})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="mealType">Meal Type</Label>
             <Select value={mealType} onValueChange={setMealType}>
@@ -179,6 +283,29 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
               value={sugar}
               onChange={(e) => setSugar(e.target.value)}
             />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              placeholder="Add any notes about this meal..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="favorite"
+              checked={isFavorite}
+              onCheckedChange={(checked) => setIsFavorite(checked as boolean)}
+            />
+            <Label htmlFor="favorite" className="flex items-center space-x-1">
+              <Star className="w-4 h-4" />
+              <span>Mark as favorite</span>
+            </Label>
           </div>
           
           <div className="flex justify-end space-x-2">
