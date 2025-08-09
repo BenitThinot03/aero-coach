@@ -6,16 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Trash2 } from "lucide-react";
+import { Plus, Loader2, Trash2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { CreateExerciseDialog } from "./CreateExerciseDialog";
 
 interface Exercise {
   id: string;
   name: string;
   type: string;
   category: string;
+  userid: string | null;
+  notes: string | null;
 }
 
 interface WorkoutEntry {
@@ -170,7 +173,10 @@ export const CreateWorkoutDialog = ({ onWorkoutCreated }: CreateWorkoutDialogPro
         <form onSubmit={handleCreateWorkout} className="space-y-6">
           {/* Exercise Selection */}
           <div className="space-y-4">
-            <Label className="text-base font-semibold">Select Exercises</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Select Exercises</Label>
+              <CreateExerciseDialog onExerciseCreated={fetchExercises} />
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
               {exercises.map((exercise) => (
                 <Button
@@ -182,9 +188,14 @@ export const CreateWorkoutDialog = ({ onWorkoutCreated }: CreateWorkoutDialogPro
                   onClick={() => handleAddExercise(exercise)}
                   disabled={selectedExercises.some(e => e.exerciseId === exercise.id)}
                 >
-                  <div className="text-left">
-                    <div className="font-medium text-xs">{exercise.name}</div>
-                    <Badge variant="secondary" className="text-xs mt-1">
+                  <div className="text-left w-full">
+                    <div className="flex items-center gap-1 mb-1">
+                      <div className="font-medium text-xs">{exercise.name}</div>
+                      {exercise.userid && (
+                        <User className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
                       {exercise.category}
                     </Badge>
                   </div>

@@ -41,23 +41,32 @@ export type Database = {
       Exercise: {
         Row: {
           category: string
+          created_at: string | null
           id: string
           name: string
+          notes: string | null
           type: string
+          userid: string | null
           videourl: string | null
         }
         Insert: {
           category: string
+          created_at?: string | null
           id: string
           name: string
+          notes?: string | null
           type: string
+          userid?: string | null
           videourl?: string | null
         }
         Update: {
           category?: string
+          created_at?: string | null
           id?: string
           name?: string
+          notes?: string | null
           type?: string
+          userid?: string | null
           videourl?: string | null
         }
         Relationships: []
