@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { FitnessChatbot } from "@/components/FitnessChatbot";
 import { Dashboard } from "./Dashboard";
 import { WorkoutPage } from "./WorkoutPage";
 import { NutritionPage } from "./NutritionPage";
@@ -53,6 +54,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {renderContent()}
       <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <FitnessChatbot />
     </div>
   );
 };

@@ -16,25 +16,25 @@ export type Database = {
     Tables: {
       AIMessageLog: {
         Row: {
-          content: string
+          airesponse: string
           id: string
-          messagetype: string
           timestamp: string | null
           userid: string
+          userinput: string
         }
         Insert: {
-          content: string
+          airesponse?: string
           id: string
-          messagetype: string
           timestamp?: string | null
           userid: string
+          userinput?: string
         }
         Update: {
-          content?: string
+          airesponse?: string
           id?: string
-          messagetype?: string
           timestamp?: string | null
           userid?: string
+          userinput?: string
         }
         Relationships: []
       }
