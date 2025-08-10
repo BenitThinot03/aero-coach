@@ -181,7 +181,36 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
 
   const handleAddMeal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !mealType || !foodItems || !calories || !protein || !carbs || !fats) return;
+    
+    // Form validation with error messages
+    if (!mealType) {
+      toast({
+        title: "Meal Type Required",
+        description: "Please select a meal type (breakfast, lunch, dinner, or snack).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!foodItems) {
+      toast({
+        title: "Food Items Required",
+        description: "Please enter the food items for this meal.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!calories || !protein || !carbs || !fats) {
+      toast({
+        title: "Nutrition Information Required",
+        description: "Please fill in all required nutrition fields (calories, protein, carbs, fats).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!user) return;
 
     setLoading(true);
     try {
@@ -263,15 +292,21 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
                 {analyzing ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing Image...
+                    AI is analyzing your meal image...
                   </>
                 ) : (
                   <>
                     <Camera className="w-4 h-4 mr-2" />
-                    Upload Photo
+                    Upload Photo for AI Analysis
                   </>
                 )}
               </Button>
+              {analyzing && (
+                <div className="flex items-center justify-center text-sm text-muted-foreground mt-2">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Extracting nutritional information from your photo...
+                </div>
+              )}
               {uploadedImage && (
                 <div className="relative">
                   <img
