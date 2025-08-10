@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Loader2, Star, Clock } from "lucide-react";
+import { Plus, Loader2, Star, Clock, Camera, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -40,8 +40,11 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
   const [notes, setNotes] = useState("");
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [previousMeals, setPreviousMeals] = useState<PreviousMeal[]>([]);
   const [selectedMealId, setSelectedMealId] = useState("");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -88,6 +91,94 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
     }
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAnalyzing(true);
+    
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64String = e.target?.result as string;
+        const base64Data = base64String.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+        
+        setUploadedImage(base64String);
+
+        try {
+          const { data, error } = await supabase.functions.invoke('analyze-meal-image', {
+            body: { imageBase64: base64Data },
+          });
+
+          if (error) throw error;
+
+          if (data.success && data.nutritionData) {
+            const nutrition = data.nutritionData;
+            
+            // Auto-populate form fields
+            setFoodItems(nutrition.fooditems.join(", "));
+            setCalories(nutrition.calories.toString());
+            setProtein(nutrition.protein.toString());
+            setCarbs(nutrition.carbs.toString());
+            setFats(nutrition.fats.toString());
+            setSugar(nutrition.sugar.toString());
+
+            toast({
+              title: "Image analyzed successfully!",
+              description: "Nutritional information has been auto-populated. Please review and adjust if needed.",
+            });
+          } else {
+            throw new Error("Failed to analyze image");
+          }
+        } catch (apiError: any) {
+          console.error('Error analyzing image:', apiError);
+          toast({
+            title: "Analysis failed",
+            description: "Could not analyze the image. Please enter nutrition information manually.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const resetForm = () => {
+    setMealType("");
+    setFoodItems("");
+    setCalories("");
+    setProtein("");
+    setCarbs("");
+    setFats("");
+    setSugar("");
+    setNotes("");
+    setIsFavorite(false);
+    setSelectedMealId("");
+    setUploadedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleAddMeal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !mealType || !foodItems || !calories || !protein || !carbs || !fats) return;
@@ -119,16 +210,7 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
       });
 
       setOpen(false);
-      setMealType("");
-      setFoodItems("");
-      setCalories("");
-      setProtein("");
-      setCarbs("");
-      setFats("");
-      setSugar("");
-      setNotes("");
-      setIsFavorite(false);
-      setSelectedMealId("");
+      resetForm();
       onMealAdded();
     } catch (error: any) {
       toast({
@@ -160,6 +242,61 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
           <DialogTitle>Add New Meal</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleAddMeal} className="space-y-4">
+          {/* Photo Upload Section */}
+          <div className="space-y-2">
+            <Label>Upload Meal Photo for AI Analysis</Label>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={analyzing}
+                className="w-full"
+              >
+                {analyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing Image...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4 mr-2" />
+                    Upload Photo
+                  </>
+                )}
+              </Button>
+              {uploadedImage && (
+                <div className="relative">
+                  <img
+                    src={uploadedImage}
+                    alt="Uploaded meal"
+                    className="w-full h-32 object-cover rounded-md border"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setUploadedImage(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                    className="absolute top-1 right-1"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
           {previousMeals.length > 0 && (
             <div className="space-y-2">
               <Label>Quick Add from Previous Meals</Label>
@@ -309,10 +446,13 @@ export const AddMealDialog = ({ onMealAdded }: AddMealDialogProps) => {
           </div>
           
           <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => {
+              setOpen(false);
+              resetForm();
+            }}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || analyzing}>
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Add Meal
             </Button>
