@@ -20,11 +20,11 @@ serve(async (req) => {
   }
 
   try {
-    const { userInput, userId } = await req.json();
+    const { userInput, userId, chatWindowId, chatWindowName } = await req.json();
 
-    if (!userInput || !userId) {
+    if (!userInput || !userId || !chatWindowId) {
       return new Response(
-        JSON.stringify({ error: 'User input and user ID are required' }),
+        JSON.stringify({ error: 'User input, user ID, and chat window ID are required' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -35,13 +35,13 @@ serve(async (req) => {
     console.log('Processing chat request for user:', userId);
     console.log('User input:', userInput);
 
-    // Fetch the last 10 conversation pairs for context
+    // Fetch all conversation history for this chat window
     const { data: conversationHistory, error: historyError } = await supabase
       .from('AIMessageLog')
       .select('userinput, airesponse, timestamp')
       .eq('userid', userId)
-      .order('timestamp', { ascending: false })
-      .limit(20); // Get 20 to ensure we have 10 pairs (user + AI responses)
+      .eq('chat_window_id', chatWindowId)
+      .order('timestamp', { ascending: true }); // Get all messages in chronological order
 
     if (historyError) {
       console.error('Error fetching conversation history:', historyError);
@@ -51,36 +51,29 @@ serve(async (req) => {
     const conversationInput = [];
     
     if (conversationHistory && conversationHistory.length > 0) {
-      // Reverse to get chronological order and take last 10 pairs
-      const recentHistory = conversationHistory.reverse().slice(-20);
-      
-      for (let i = 0; i < recentHistory.length; i += 2) {
-        const userMessage = recentHistory[i];
-        const aiMessage = recentHistory[i + 1];
+      // Add all conversation history in chronological order
+      for (const message of conversationHistory) {
+        // Add user input
+        conversationInput.push({
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: message.userinput || ""
+            }
+          ]
+        });
         
-        if (userMessage) {
-          conversationInput.push({
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: userMessage.userinput || ""
-              }
-            ]
-          });
-        }
-        
-        if (aiMessage) {
-          conversationInput.push({
-            role: "assistant", 
-            content: [
-              {
-                type: "output_text",
-                text: aiMessage.airesponse || ""
-              }
-            ]
-          });
-        }
+        // Add AI response
+        conversationInput.push({
+          role: "assistant", 
+          content: [
+            {
+              type: "output_text",
+              text: message.airesponse || ""
+            }
+          ]
+        });
       }
     }
 
@@ -130,7 +123,9 @@ serve(async (req) => {
         userid: userId,
         userinput: userInput,
         airesponse: aiResponse,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        chat_window_id: chatWindowId,
+        chat_window_name: chatWindowName || 'New chat'
       });
 
     if (dbError) {

@@ -17,6 +17,8 @@ export type Database = {
       AIMessageLog: {
         Row: {
           airesponse: string
+          chat_window_id: string | null
+          chat_window_name: string | null
           id: string
           timestamp: string | null
           userid: string
@@ -24,6 +26,8 @@ export type Database = {
         }
         Insert: {
           airesponse?: string
+          chat_window_id?: string | null
+          chat_window_name?: string | null
           id?: string
           timestamp?: string | null
           userid: string
@@ -31,6 +35,8 @@ export type Database = {
         }
         Update: {
           airesponse?: string
+          chat_window_id?: string | null
+          chat_window_name?: string | null
           id?: string
           timestamp?: string | null
           userid?: string
