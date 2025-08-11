@@ -35,6 +35,68 @@ serve(async (req) => {
     console.log('Processing chat request for user:', userId);
     console.log('User input:', userInput);
 
+    // Fetch the last 10 conversation pairs for context
+    const { data: conversationHistory, error: historyError } = await supabase
+      .from('AIMessageLog')
+      .select('userinput, airesponse, timestamp')
+      .eq('userid', userId)
+      .order('timestamp', { ascending: false })
+      .limit(20); // Get 20 to ensure we have 10 pairs (user + AI responses)
+
+    if (historyError) {
+      console.error('Error fetching conversation history:', historyError);
+    }
+
+    // Format conversation history into the required structure
+    const conversationInput = [];
+    
+    if (conversationHistory && conversationHistory.length > 0) {
+      // Reverse to get chronological order and take last 10 pairs
+      const recentHistory = conversationHistory.reverse().slice(-20);
+      
+      for (let i = 0; i < recentHistory.length; i += 2) {
+        const userMessage = recentHistory[i];
+        const aiMessage = recentHistory[i + 1];
+        
+        if (userMessage) {
+          conversationInput.push({
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: userMessage.userinput || ""
+              }
+            ]
+          });
+        }
+        
+        if (aiMessage) {
+          conversationInput.push({
+            role: "assistant", 
+            content: [
+              {
+                type: "output_text",
+                text: aiMessage.airesponse || ""
+              }
+            ]
+          });
+        }
+      }
+    }
+
+    // Add the new user input
+    conversationInput.push({
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: userInput
+        }
+      ]
+    });
+
+    console.log('Conversation input length:', conversationInput.length);
+
     // Call OpenAI API
     const openAIResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -44,17 +106,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: userInput
-              }
-            ]
-          }
-        ],
+        input: conversationInput,
         max_output_tokens: 1000,
         temperature: 0.7,
         instructions: "You are a friendly and professional fitness and nutrition coach for someone who does weight training, sports, and pays attention to their diet. Give clear, practical, and encouraging advice on workouts, nutrition, and healthy habits."
