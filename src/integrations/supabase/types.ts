@@ -24,7 +24,7 @@ export type Database = {
         }
         Insert: {
           airesponse?: string
-          id: string
+          id?: string
           timestamp?: string | null
           userid: string
           userinput?: string
