@@ -113,6 +113,7 @@ export const ChatWindowList = ({ onSelectWindow, selectedWindowId }: ChatWindowL
 
       if (error) throw error;
 
+      // Update local state immediately
       setChatWindows(prev => 
         prev.map(window => 
           window.chat_window_id === windowId 
@@ -123,6 +124,11 @@ export const ChatWindowList = ({ onSelectWindow, selectedWindowId }: ChatWindowL
 
       setEditingWindow(null);
       setEditName("");
+
+      toast({
+        title: "Success",
+        description: "Chat window name updated successfully.",
+      });
     } catch (error) {
       console.error('Error updating window name:', error);
       toast({

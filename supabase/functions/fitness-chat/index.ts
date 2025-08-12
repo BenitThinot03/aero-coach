@@ -20,11 +20,11 @@ serve(async (req) => {
   }
 
   try {
-    const { userInput, userId, chatWindowId, chatWindowName } = await req.json();
+    const { userInput, userId, chatWindowId, chatWindowName, imageData } = await req.json();
 
-    if (!userInput || !userId || !chatWindowId) {
+    if ((!userInput && !imageData) || !userId || !chatWindowId) {
       return new Response(
-        JSON.stringify({ error: 'User input, user ID, and chat window ID are required' }),
+        JSON.stringify({ error: 'User input or image, user ID, and chat window ID are required' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -78,14 +78,23 @@ serve(async (req) => {
     }
 
     // Add the new user input
+    const newUserContent = [];
+    if (userInput) {
+      newUserContent.push({
+        type: "input_text",
+        text: userInput
+      });
+    }
+    if (imageData) {
+      newUserContent.push({
+        type: "input_image",
+        image_url: imageData
+      });
+    }
+
     conversationInput.push({
       role: "user",
-      content: [
-        {
-          type: "input_text",
-          text: userInput
-        }
-      ]
+      content: newUserContent
     });
 
     console.log('Conversation input length:', conversationInput.length);
@@ -116,12 +125,12 @@ serve(async (req) => {
 
     console.log('AI response:', aiResponse);
 
-    // Store the conversation in the database
+    // Store the conversation in the database (don't store image data)
     const { error: dbError } = await supabase
       .from('AIMessageLog')
       .insert({
         userid: userId,
-        userinput: userInput,
+        userinput: userInput || 'Image uploaded',
         airesponse: aiResponse,
         timestamp: new Date().toISOString(),
         chat_window_id: chatWindowId,

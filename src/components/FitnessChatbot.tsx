@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { MessageCircle, Send, Loader2 } from "lucide-react";
+import { MessageCircle, Send, Loader2, Image, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ interface ChatMessage {
   airesponse: string;
   timestamp: string;
   chat_window_id: string;
+  hasImage?: boolean;
 }
 
 export const FitnessChatbot = () => {
@@ -27,9 +28,12 @@ export const FitnessChatbot = () => {
   const [selectedWindowId, setSelectedWindowId] = useState<string>("");
   const [selectedWindowName, setSelectedWindowName] = useState<string>("New chat");
   const [showWindowList, setShowWindowList] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load chat history when dialog opens or window changes
   useEffect(() => {
@@ -73,10 +77,24 @@ export const FitnessChatbot = () => {
   };
 
   const sendMessage = async () => {
-    if (!currentInput.trim() || !user || isLoading || !selectedWindowId) return;
+    if ((!currentInput.trim() && !selectedImage) || !user || isLoading || !selectedWindowId) return;
 
     const userMessage = currentInput.trim();
+    let imageBase64 = null;
+    const hasImage = !!selectedImage;
+
+    if (selectedImage) {
+      // Convert image to base64
+      const reader = new FileReader();
+      imageBase64 = await new Promise((resolve) => {
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(selectedImage);
+      });
+    }
+
     setCurrentInput("");
+    setSelectedImage(null);
+    setImagePreview(null);
     setIsLoading(true);
 
     try {
@@ -85,7 +103,8 @@ export const FitnessChatbot = () => {
           userInput: userMessage,
           userId: user.id,
           chatWindowId: selectedWindowId,
-          chatWindowName: selectedWindowName
+          chatWindowName: selectedWindowName,
+          imageData: imageBase64
         }
       });
 
@@ -95,10 +114,11 @@ export const FitnessChatbot = () => {
         // Add the new message to the chat history
         const newMessage: ChatMessage = {
           id: Date.now().toString(),
-          userinput: userMessage,
+          userinput: userMessage || "Image uploaded",
           airesponse: data.aiResponse,
           timestamp: new Date().toISOString(),
-          chat_window_id: selectedWindowId
+          chat_window_id: selectedWindowId,
+          hasImage
         };
         
         setMessages(prev => [...prev, newMessage]);
@@ -117,11 +137,24 @@ export const FitnessChatbot = () => {
     }
   };
 
-  const handleSelectWindow = (windowId: string, windowName: string) => {
-    setSelectedWindowId(windowId);
-    setSelectedWindowName(windowName);
-    setShowWindowList(false);
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
   };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
 
   const handleBackToWindowList = () => {
     setShowWindowList(true);
@@ -133,6 +166,15 @@ export const FitnessChatbot = () => {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleSelectWindow = (windowId: string, windowName: string) => {
+    setSelectedWindowId(windowId);
+    setSelectedWindowName(windowName);
+    setShowWindowList(false);
+    // Clear any selected image when switching windows
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   return (
@@ -183,14 +225,22 @@ export const FitnessChatbot = () => {
                   <div className="space-y-4 py-4">
                     {messages.map((message) => (
                       <div key={message.id} className="space-y-3">
-                        {/* User message */}
-                        <div className="flex justify-end">
-                          <Card className="max-w-[80%] bg-primary text-primary-foreground">
-                            <CardContent className="p-3">
-                              <p className="text-sm">{message.userinput}</p>
-                            </CardContent>
-                          </Card>
-                        </div>
+                         {/* User message */}
+                         <div className="flex justify-end">
+                           <Card className="max-w-[80%] bg-primary text-primary-foreground">
+                             <CardContent className="p-3">
+                               <div className="space-y-2">
+                                 {message.hasImage && (
+                                   <div className="flex items-center gap-2 text-sm opacity-80">
+                                     <Image className="w-4 h-4" />
+                                     <span>Image uploaded</span>
+                                   </div>
+                                 )}
+                                 <p className="text-sm">{message.userinput}</p>
+                               </div>
+                             </CardContent>
+                           </Card>
+                         </div>
                         
                         {/* AI response */}
                         <div className="flex justify-start">
@@ -211,6 +261,23 @@ export const FitnessChatbot = () => {
 
               {/* Input area */}
               <div className="p-6 pt-3 border-t">
+                {imagePreview && (
+                  <div className="mb-3 relative inline-block">
+                    <img 
+                      src={imagePreview} 
+                      alt="Selected" 
+                      className="w-20 h-20 object-cover rounded-lg border"
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full bg-destructive hover:bg-destructive/80"
+                      onClick={removeImage}
+                    >
+                      <X className="w-3 h-3 text-destructive-foreground" />
+                    </Button>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Input
                     value={currentInput}
@@ -220,9 +287,24 @@ export const FitnessChatbot = () => {
                     disabled={isLoading}
                     className="flex-1"
                   />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
+                  >
+                    <Image className="w-4 h-4" />
+                  </Button>
                   <Button 
                     onClick={sendMessage} 
-                    disabled={isLoading || !currentInput.trim()}
+                    disabled={isLoading || (!currentInput.trim() && !selectedImage)}
                     size="icon"
                   >
                     {isLoading ? (
