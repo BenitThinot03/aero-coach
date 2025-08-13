@@ -9,9 +9,16 @@ interface ProgressDataPoint {
   value: number;
 }
 
+interface MonthlyAverage {
+  currentMonth: number;
+  previousMonth: number;
+  difference: number;
+}
+
 export const useProgressData = (metric: ProgressMetric) => {
   const { user } = useAuth();
   const [data, setData] = useState<ProgressDataPoint[]>([]);
+  const [monthlyAverage, setMonthlyAverage] = useState<MonthlyAverage | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,7 +39,7 @@ export const useProgressData = (metric: ProgressMetric) => {
 
         if (weightData) {
           const formattedData = weightData.map(item => ({
-            date: new Date(item.date).toLocaleDateString(),
+            date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             value: Number(item.weight)
           }));
           setData(formattedData);
@@ -52,7 +59,7 @@ export const useProgressData = (metric: ProgressMetric) => {
         if (nutritionData) {
           // Group by date and sum values
           const groupedData = nutritionData.reduce((acc, entry) => {
-            const date = new Date(entry.date).toLocaleDateString();
+            const date = new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             if (!acc[date]) {
               acc[date] = { calories: 0, protein: 0, carbs: 0, fats: 0 };
             }
@@ -65,18 +72,84 @@ export const useProgressData = (metric: ProgressMetric) => {
 
           const formattedData = Object.entries(groupedData).map(([date, values]) => ({
             date,
-            value: values[metric] || 0
+            value: values[metric === 'fat' ? 'fats' : metric] || 0
           }));
           
           setData(formattedData);
+
+          // Calculate monthly averages for nutrition metrics
+          const nutritionMetric = metric === 'fat' ? 'fats' : metric;
+          if (nutritionMetric === 'calories' || nutritionMetric === 'protein' || nutritionMetric === 'carbs' || nutritionMetric === 'fats') {
+            await calculateMonthlyAverages(nutritionMetric);
+          }
         }
       }
       
       setLoading(false);
     };
 
+    const calculateMonthlyAverages = async (nutritionMetric: 'calories' | 'protein' | 'carbs' | 'fats') => {
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      // Current month data
+      const { data: currentMonthData } = await supabase
+        .from('NutritionEntry')
+        .select('date, calories, protein, carbs, fats')
+        .eq('userid', user.id)
+        .gte('date', currentMonthStart.toISOString())
+        .lte('date', now.toISOString());
+
+      // Previous month data
+      const { data: previousMonthData } = await supabase
+        .from('NutritionEntry')
+        .select('date, calories, protein, carbs, fats')
+        .eq('userid', user.id)
+        .gte('date', previousMonthStart.toISOString())
+        .lte('date', previousMonthEnd.toISOString());
+
+      if (currentMonthData && previousMonthData) {
+        // Group and sum current month
+        const currentGrouped = currentMonthData.reduce((acc, entry) => {
+          const date = new Date(entry.date).toDateString();
+          if (!acc[date]) {
+            acc[date] = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+          }
+          acc[date][nutritionMetric] += entry[nutritionMetric];
+          return acc;
+        }, {} as Record<string, any>);
+
+        // Group and sum previous month
+        const previousGrouped = previousMonthData.reduce((acc, entry) => {
+          const date = new Date(entry.date).toDateString();
+          if (!acc[date]) {
+            acc[date] = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+          }
+          acc[date][nutritionMetric] += entry[nutritionMetric];
+          return acc;
+        }, {} as Record<string, any>);
+
+        const currentDays = Object.keys(currentGrouped).length || 1;
+        const previousDays = Object.keys(previousGrouped).length || 1;
+
+        const currentTotal = Object.values(currentGrouped).reduce((sum: number, day: any) => sum + day[nutritionMetric], 0);
+        const previousTotal = Object.values(previousGrouped).reduce((sum: number, day: any) => sum + day[nutritionMetric], 0);
+
+        const currentAvg = currentTotal / currentDays;
+        const previousAvg = previousTotal / previousDays;
+
+        setMonthlyAverage({
+          currentMonth: Math.round(currentAvg),
+          previousMonth: Math.round(previousAvg),
+          difference: Math.round(currentAvg - previousAvg)
+        });
+      }
+    };
+
     fetchData();
   }, [user, metric]);
 
-  return { data, loading };
+  return { data, loading, monthlyAverage };
 };
