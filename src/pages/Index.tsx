@@ -36,7 +36,7 @@ const Index = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "home":
-        return <Dashboard />;
+        return <Dashboard onTabChange={setActiveTab} />;
       case "workout":
         return <WorkoutPage />;
       case "nutrition":
@@ -46,7 +46,7 @@ const Index = () => {
       case "profile":
         return <ProfilePage />;
       default:
-        return <Dashboard />;
+        return <Dashboard onTabChange={setActiveTab} />;
     }
   };
 
