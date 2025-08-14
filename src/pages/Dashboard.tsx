@@ -9,14 +9,7 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ onTabChange }: DashboardProps) => {
-  const { todayNutrition, recentActivities, loading } = useNutritionData();
-
-  const nutritionTargets = {
-    calories: 2200,
-    protein: 150,
-    carbs: 275,
-    fats: 73
-  };
+  const { todayNutrition, recentActivities, loading, nutritionTargets } = useNutritionData();
 
   if (loading) {
     return (

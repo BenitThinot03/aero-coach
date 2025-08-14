@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Camera, MessageCircle, Search } from "lucide-react";
 import { AddMealDialog } from "@/components/AddMealDialog";
+import { NutritionDonutChart } from "@/components/NutritionDonutChart";
+import { useNutritionData } from "@/hooks/useNutritionData";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -12,18 +14,7 @@ export const NutritionPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showChat, setShowChat] = useState(false);
   const [todayMeals, setTodayMeals] = useState<any[]>([]);
-  const [totalNutrition, setTotalNutrition] = useState({
-    calories: 0,
-    protein: 0,
-    carbs: 0,
-    fats: 0,
-    goal: {
-      calories: 2200,
-      protein: 150,
-      carbs: 275,
-      fats: 73
-    }
-  });
+  const { todayNutrition, nutritionTargets, loading } = useNutritionData();
   const { user } = useAuth();
 
   const fetchMeals = async () => {
@@ -41,18 +32,7 @@ export const NutritionPage = () => {
 
       if (error) throw error;
       
-      const meals = data || [];
-      setTodayMeals(meals);
-      
-      // Calculate totals
-      const totals = meals.reduce((acc, meal) => ({
-        calories: acc.calories + meal.calories,
-        protein: acc.protein + meal.protein,
-        carbs: acc.carbs + meal.carbs,
-        fats: acc.fats + meal.fats,
-      }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
-      
-      setTotalNutrition(prev => ({ ...prev, ...totals }));
+      setTodayMeals(data || []);
     } catch (error) {
       console.error("Error fetching meals:", error);
     }
@@ -76,48 +56,50 @@ export const NutritionPage = () => {
         </div>
       </div>
 
-      {/* Daily Summary */}
+      {/* Daily Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Today's Progress</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Calories */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-muted-foreground">Calories</span>
-              <span className="text-sm font-medium">
-                {totalNutrition.calories} / {totalNutrition.goal.calories}
-              </span>
+        <CardContent>
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 bg-muted rounded animate-pulse" />
+              ))}
             </div>
-            <div className="w-full bg-fitness-gray rounded-full h-2">
-              <div 
-                className="bg-fitness-blue h-2 rounded-full transition-all duration-300"
-                style={{ 
-                  width: `${Math.min((totalNutrition.calories / totalNutrition.goal.calories) * 100, 100)}%` 
-                }}
-              ></div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <NutritionDonutChart
+                label="Calories"
+                current={todayNutrition.calories}
+                target={nutritionTargets.calories}
+                color="hsl(var(--primary))"
+                unit="kcal"
+              />
+              <NutritionDonutChart
+                label="Protein"
+                current={todayNutrition.protein}
+                target={nutritionTargets.protein}
+                color="hsl(var(--secondary))"
+                unit="g"
+              />
+              <NutritionDonutChart
+                label="Carbs"
+                current={todayNutrition.carbs}
+                target={nutritionTargets.carbs}
+                color="hsl(var(--accent))"
+                unit="g"
+              />
+              <NutritionDonutChart
+                label="Fat"
+                current={todayNutrition.fats}
+                target={nutritionTargets.fats}
+                color="hsl(var(--destructive))"
+                unit="g"
+              />
             </div>
-          </div>
-
-          {/* Macros */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <p className="text-lg font-semibold text-blue-600">{totalNutrition.protein}g</p>
-              <p className="text-xs text-muted-foreground">Protein</p>
-              <p className="text-xs text-muted-foreground">/ {totalNutrition.goal.protein}g</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold text-green-600">{totalNutrition.carbs}g</p>
-              <p className="text-xs text-muted-foreground">Carbs</p>
-              <p className="text-xs text-muted-foreground">/ {totalNutrition.goal.carbs}g</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold text-orange-600">{totalNutrition.fats}g</p>
-              <p className="text-xs text-muted-foreground">Fats</p>
-              <p className="text-xs text-muted-foreground">/ {totalNutrition.goal.fats}g</p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -191,7 +173,7 @@ export const NutritionPage = () => {
       {/* AI Assistant Button */}
       <Button 
         onClick={() => setShowChat(!showChat)}
-        className="fixed bottom-24 right-4 rounded-full w-14 h-14 bg-fitness-blue hover:bg-fitness-blue-dark"
+        className="fixed bottom-24 right-4 rounded-full w-14 h-14"
       >
         <MessageCircle className="w-6 h-6" />
       </Button>

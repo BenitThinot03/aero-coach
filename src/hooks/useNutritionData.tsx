@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 
 interface NutritionData {
   calories: number;
@@ -20,6 +21,7 @@ interface Activity {
 
 export const useNutritionData = () => {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const [todayNutrition, setTodayNutrition] = useState<NutritionData>({
     calories: 0,
     protein: 0,
@@ -28,6 +30,14 @@ export const useNutritionData = () => {
   });
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Default targets if user hasn't set custom ones
+  const nutritionTargets = {
+    calories: profile?.target_calories || 2200,
+    protein: profile?.target_protein || 150,
+    carbs: 275, // No target_carbs in profile table
+    fats: profile?.target_fats || 73
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -116,5 +126,5 @@ export const useNutritionData = () => {
     fetchData();
   }, [user]);
 
-  return { todayNutrition, recentActivities, loading };
+  return { todayNutrition, recentActivities, loading, nutritionTargets };
 };
